@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI景点推荐</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fafafa;color:#1a1a1a;line-height:1.6}
+.container{max-width:640px;margin:0 auto;padding:2rem 1.5rem}
+.status-bar{display:flex;align-items:center;gap:.75rem;padding:1rem 0;border-bottom:1px solid #e5e5e5;font-size:.875rem;color:#666}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#3b82f6}
+.section-title{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:#999;margin:2rem 0 .75rem}
+.filter-group{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.filter-btn{padding:.5rem 1rem;border:1px solid #d4d4d4;background:#fff;color:#333;font-size:.875rem;cursor:pointer;transition:all .2s;border-radius:0}
+.filter-btn:hover{border-color:#3b82f6;color:#3b82f6}
+.filter-btn.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.action-btn{width:100%;padding:.875rem;background:#1a1a1a;color:#fff;border:none;font-size:.875rem;cursor:pointer;transition:opacity .2s;margin-top:1.5rem}
+.action-btn:hover{opacity:.85}
+.result-card{margin-top:2rem;padding:2rem;border:1px solid #e5e5e5;background:#fff;opacity:0;transform:translateY(10px);transition:all .3s ease-out}
+.result-card.show{opacity:1;transform:translateY(0)}
+.card-image{width:100%;height:200px;background:#f0f0f0;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:.875rem}
+.card-name{font-size:1.5rem;font-weight:600;margin-bottom:.5rem}
+.card-meta{font-size:.875rem;color:#666;margin-bottom:1rem}
+.card-desc{font-size:.875rem;color:#444;line-height:1.7}
+.retry-btn{width:100%;padding:.75rem;background:transparent;border:1px solid #d4d4d4;color:#333;font-size:.875rem;cursor:pointer;margin-top:1.5rem;transition:all .2s}
+.retry-btn:hover{border-color:#3b82f6;color:#3b82f6}
+.manual-input{margin-top:1rem;display:none}
+.manual-input input{width:100%;padding:.75rem;border:1px solid #d4d4d4;font-size:.875rem}
+.empty-state{text-align:center;padding:3rem 1rem;color:#999;font-size:.875rem}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="status-bar">
+<div class="status-dot" id="statusDot"></div>
+<span id="statusText">正在定位...</span>
+</div>
+
+<div class="manual-input" id="manualInput">
+<input type="text" placeholder="输入地址或经纬度(如: 30.242,120.135)" id="locationInput">
+</div>
+
+<div class="section-title">按距离筛选</div>
+<div class="filter-group" id="distanceGroup">
+<button class="filter-btn" data-range="1km">1公里内</button>
+<button class="filter-btn" data-range="5km">5公里内</button>
+<button class="filter-btn" data-range="10km">10公里内</button>
+<button class="filter-btn" data-range="20km">20公里内</button>
+</div>
+
+<div class="section-title">按行政区域筛选</div>
+<div class="filter-group" id="regionGroup">
+<button class="filter-btn" data-region="district">当前区/县级市</button>
+<button class="filter-btn" data-region="city">当前地级市</button>
+<button class="filter-btn" data-region="province">当前省份</button>
+<button class="filter-btn" data-region="nationwide">全国</button>
+</div>
+
+<button class="action-btn" id="startBtn">开始筛选</button>
+
+<div id="resultArea"></div>
+</div>
+
+<script>
+const AMAP_KEY = process?.env?.VITE_AMAP_KEY || 'YOUR_AMAP_KEY';
+let userLocation = null;
+let userRegion = { district: '', city: '', province: '' };
+let currentFilter = { type: 'region', value: 'district' };
+
+const spots = [
+{name:'灵隐寺',lat:30.242,lng:120.135,district:'西湖区',city:'杭州市',province:'浙江省',desc:'千年古刹，禅意深远',imgUrl:''},
+{name:'西湖',lat:30.25,lng:120.15,district:'西湖区',city:'杭州市',province:'浙江省',desc:'人间天堂，湖光山色',imgUrl:''},
+{name:'故宫',lat:39.916,lng:116.397,district:'东城区',city:'北京市',province:'北京市',desc:'明清皇家宫殿',imgUrl:''},
+{name:'外滩',lat:31.239,lng:121.49,district:'黄浦区',city:'上海市',province:'上海市',desc:'万国建筑博览群',imgUrl:''},
+{name:'兵马俑',lat:34.384,lng:109.278,district:'临潼区',city:'西安市',province:'陕西省',desc:'世界第八大奇迹',imgUrl:''},
+{name:'张家界',lat:29.117,lng:110.479,district:'永定区',city:'张家界市',province:'湖南省',desc:'奇峰异石，自然奇观',imgUrl:''},
+{name:'九寨沟',lat:33.203,lng:103.904,district:'九寨沟县',city:'阿坝州',province:'四川省',desc:'童话世界，水景之王',imgUrl:''},
+{name:'丽江古城',lat:26.872,lng:100.233,district:'古城区',city:'丽江市',province:'云南省',desc:'纳西文化，古城韵味',imgUrl:''},
+{name:'鼓浪屿',lat:24.444,lng:118.068,district:'思明区',city:'厦门市',province:'福建省',desc:'海上花园，音乐之岛',imgUrl:''},
+{name:'黄山',lat:30.138,lng:118.168,district:'黄山区',city:'黄山市',province:'安徽省',desc:'五岳归来不看山',imgUrl:''},
+{name:'泰山',lat:36.257,lng:117.096,district:'泰山区',city:'泰安市',province:'山东省',desc:'五岳之首，雄伟壮观',imgUrl:''},
+{name:'桂林山水',lat:25.273,lng:110.29,district:'秀峰区',city:'桂林市',province:'广西壮族自治区',desc:'甲天下，漓江风光',imgUrl:''},
+{name:'布达拉宫',lat:29.652,lng:91.117,district:'城关区',city:'拉萨市',province:'西藏自治区',desc:'雪域高原的明珠',imgUrl:''},
+{name:'敦煌莫高窟',lat:40.041,lng:94.809,district:'敦煌市',city:'酒泉市',province:'甘肃省',desc:'东方艺术宝库',imgUrl:''},
+{name:'颐和园',lat:39.999,lng:116.275,district:'海淀区',city:'北京市',province:'北京市',desc:'皇家园林典范',imgUrl:''},
+{name:'苏州园林',lat:31.304,lng:120.595,district:'姑苏区',city:'苏州市',province:'江苏省',desc:'江南园林甲天下',imgUrl:''},
+{name:'峨眉山',lat:29.562,lng:103.435,district:'峨眉山市',city:'乐山市',province:'四川省',desc:'佛教名山，云海奇观',imgUrl:''},
+{name:'武夷山',lat:27.752,lng:118.018,district:'武夷山市',city:'南平市',province:'福建省',desc:'丹霞地貌，茶文化',imgUrl:''},
+{name:'长白山',lat:42.033,lng:128.058,district:'安图县',city:'延边州',province:'吉林省',desc:'天池胜景，冰雪世界',imgUrl:''},
+{name:'喀纳斯',lat:48.706,lng:87.027,district:'布尔津县',city:'阿勒泰地区',province:'新疆维吾尔自治区',desc:'人间净土，湖光山色',imgUrl:''}
+];
+
+function haversine(lat1, lng1, lat2, lng2) {
+const R = 6371;
+const dLat = (lat2 - lat1) * Math.PI / 180;
+const dLng = (lng2 - lng1) * Math.PI / 180;
+const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function getLocation() {
+if (!navigator.geolocation) {
+showManualInput();
+return;
+}
+navigator.geolocation.getCurrentPosition(
+pos => {
+userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+document.getElementById('statusDot').style.background = '#10b981';
+document.getElementById('statusText').textContent = '定位成功';
+getRegionInfo();
+},
+err => {
+document.getElementById('statusDot').style.background = '#ef4444';
+document.getElementById('statusText').textContent = '定位失败，请手动输入';
+showManualInput();
+currentFilter = { type: 'region', value: 'nationwide' };
+document.querySelector('[data-region="nationwide"]').classList.add('active');
+}
+);
+}
+
+function getRegionInfo() {
+fetch(`https://restapi.amap.com/v3/geocode/regeo?key=${AMAP_KEY}&location=${userLocation.lng},${userLocation.lat}`)
+.then(r => r.json())
+.then(data => {
+if (data.regeocode && data.regeocode.addressComponent) {
+const addr = data.regeocode.addressComponent;
+userRegion.district = addr.district || '';
+userRegion.city = addr.city || '';
+userRegion.province = addr.province || '';
+document.getElementById('statusText').textContent = `${userRegion.province} ${userRegion.city} ${userRegion.district}`;
+document.querySelector('[data-region="district"]').classList.add('active');
+}
+})
+.catch(() => {
+document.querySelector('[data-region="district"]').classList.add('active');
+});
+}
+
+function showManualInput() {
+document.getElementById('manualInput').style.display = 'block';
+}
+
+document.getElementById('locationInput').addEventListener('change', e => {
+const val = e.target.value.trim();
+const coords = val.split(',').map(Number);
+if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+userLocation = { lat: coords[0], lng: coords[1] };
+document.getElementById('statusDot').style.background = '#10b981';
+document.getElementById('statusText').textContent = '手动定位成功';
+document.getElementById('manualInput').style.display = 'none';
+}
+});
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+btn.addEventListener('click', () => {
+const group = btn.parentElement;
+group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+btn.classList.add('active');
+if (btn.dataset.range) {
+currentFilter = { type: 'distance', value: btn.dataset.range };
+} else if (btn.dataset.region) {
+currentFilter = { type: 'region', value: btn.dataset.region };
+}
+document.getElementById('resultArea').innerHTML = '';
+});
+});
+
+document.getElementById('startBtn').addEventListener('click', recommendSpot);
+
+function recommendSpot() {
+let filtered = spots.filter(spot => {
+if (currentFilter.type === 'distance' && userLocation) {
+const dist = haversine(userLocation.lat, userLocation.lng, spot.lat, spot.lng);
+const maxDist = parseInt(currentFilter.value);
+return dist <= maxDist;
+} else if (currentFilter.type === 'region') {
+if (currentFilter.value === 'nationwide') return true;
+if (currentFilter.value === 'province') return spot.province === userRegion.province;
+if (currentFilter.value === 'city') return spot.city === userRegion.city;
+if (currentFilter.value === 'district') return spot.district === userRegion.district;
+}
+return true;
+});
+
+if (filtered.length === 0) {
+filtered = spots;
+currentFilter = { type: 'region', value: 'nationwide' };
+document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+document.querySelector('[data-region="nationwide"]').classList.add('active');
+}
+
+const randomSpot = filtered[Math.floor(Math.random() * filtered.length)];
+showResult(randomSpot);
+}
+
+function showResult(spot) {
+const dist = userLocation ? haversine(userLocation.lat, userLocation.lng, spot.lat, spot.lng).toFixed(1) : null;
+const html = `
+<div class="result-card" id="resultCard">
+${spot.imgUrl ? `<img src="${spot.imgUrl}" class="card-image" alt="${spot.name}">` : '<div class="card-image">暂无图片</div>'}
+<div class="card-name">${spot.name}</div>
+<div class="card-meta">${spot.province} ${spot.city} ${spot.district}${dist ? ` · 距离${dist}km` : ''}</div>
+<div class="card-desc">${spot.desc}</div>
+<button class="retry-btn" onclick="recommendSpot()">换一个</button>
+</div>
+`;
+document.getElementById('resultArea').innerHTML = html;
+setTimeout(() => document.getElementById('resultCard').classList.add('show'), 50);
+}
+
+getLocation();
+</script>
+</body>
+</html>

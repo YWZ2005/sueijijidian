@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI景点推荐 - 深色沉浸</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+body{font-family:'Noto Sans SC',sans-serif;background:#1f2937;color:#e5e7eb}
+.glow-text{text-shadow:0 0 10px #22d3ee,0 0 20px #22d3ee}
+.glow-border{box-shadow:0 0 15px rgba(34,211,238,0.3)}
+.btn-glow:hover{box-shadow:0 0 20px rgba(34,211,238,0.5);transform:translateY(-2px)}
+.card-enter{animation:cardSlideIn 0.5s ease-out}
+@keyframes cardSlideIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn 0.3s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+<div class="max-w-4xl mx-auto">
+<header class="text-center mb-8 fade-in">
+<h1 class="text-3xl md:text-4xl font-bold glow-text mb-2">🎯 AI景点推荐</h1>
+<p class="text-gray-400 text-sm">发现身边的精彩去处</p>
+</header>
+
+<section id="location-panel" class="bg-gray-800 rounded-xl p-6 mb-6 glow-border fade-in">
+<div class="flex items-center justify-between mb-4">
+<div>
+<p class="text-xs text-gray-500 mb-1">当前位置</p>
+<p id="location-text" class="text-lg font-medium text-cyan-400">正在定位...</p>
+</div>
+<button onclick="getLocation()" class="bg-cyan-500 hover:bg-cyan-400 text-gray-900 px-4 py-2 rounded-lg font-medium transition-all btn-glow">重新定位</button>
+</div>
+<input type="text" id="manual-input" placeholder="或手动输入地址/经纬度" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-cyan-400 focus:outline-none">
+</section>
+
+<section class="mb-6 fade-in">
+<div class="mb-4">
+<label class="text-sm text-gray-400 mb-2 block">按距离筛选</label>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-2" id="distance-btns">
+<button data-range="1km" class="range-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg py-2 text-sm transition-all btn-glow">1公里内</button>
+<button data-range="5km" class="range-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg py-2 text-sm transition-all btn-glow">5公里内</button>
+<button data-range="10km" class="range-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg py-2 text-sm transition-all btn-glow">10公里内</button>
+<button data-range="20km" class="range-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg py-2 text-sm transition-all btn-glow">20公里内</button>
+</div>
+</div>
+<div>
+<label class="text-sm text-gray-400 mb-2 block">按行政区域筛选</label>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-2" id="region-btns">
+<button data-region="district" class="region-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg py-2 text-sm transition-all btn-glow">当前区县</button>
+<button data-region="city" class="region-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg py-2 text-sm transition-all btn-glow">当前城市</button>
+<button data-region="province" class="region-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg py-2 text-sm transition-all btn-glow">当前省份</button>
+<button data-region="nationwide" class="region-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg py-2 text-sm transition-all btn-glow">全国</button>
+</div>
+</div>
+</section>
+
+<button onclick="startFilter()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold py-3 rounded-xl mb-6 transition-all btn-glow text-lg">开始筛选</button>
+
+<section id="result-area" class="hidden">
+<div id="result-card" class="bg-gray-800 rounded-2xl overflow-hidden glow-border card-enter">
+<img id="spot-img" src="" alt="景点图片" class="w-full h-64 object-cover">
+<div class="p-6">
+<div class="flex items-start justify-between mb-3">
+<h2 id="spot-name" class="text-2xl font-bold text-white"></h2>
+<span id="spot-tag" class="bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded-full text-xs"></span>
+</div>
+<p id="spot-desc" class="text-gray-300 mb-4 leading-relaxed"></p>
+<div class="flex items-center gap-2 text-sm text-gray-400 mb-4">
+<span id="spot-reason">💡 推荐理由:</span>
+<span id="spot-tags" class="text-cyan-400"></span>
+</div>
+<button onclick="refreshSpot()" class="w-full bg-gray-700 hover:bg-gray-600 border border-cyan-500/30 text-cyan-400 py-2 rounded-lg transition-all btn-glow">换一个</button>
+</div>
+</div>
+</section>
+
+<section id="no-result" class="hidden text-center py-12">
+<p class="text-gray-400 text-lg">当前范围暂无景点，已自动扩大至全国</p>
+</section>
+</div>
+
+<script>
+const spots=[
+{name:"灵隐寺",lat:30.242,lng:120.135,district:"西湖区",city:"杭州市",province:"浙江省",tags:["人文","祈福"],imgUrl:"https://images.unsplash.com/photo-1548013146-72479768bada?w=800",desc:"千年古刹，禅意深远，杭州必游之地"},
+{name:"西湖",lat:30.248,lng:120.145,district:"西湖区",city:"杭州市",province:"浙江省",tags:["自然","湖景"],imgUrl:"https://images.unsplash.com/photo-1528164344705-47542687000d?w=800",desc:"人间天堂，淡妆浓抹总相宜"},
+{name:"故宫",lat:39.916,lng:116.397,district:"东城区",city:"北京市",province:"北京市",tags:["历史","文化"],imgUrl:"https://images.unsplash.com/photo-1599571234909-29ed5d1321d6?w=800",desc:"明清皇家宫殿，世界文化遗产"},
+{name:"外滩",lat:31.239,lng:121.499,district:"黄浦区",city:"上海市",province:"上海市",tags:["夜景","建筑"],imgUrl:"https://images.unsplash.com/photo-1548919973-5cef591cdbc9?w=800",desc:"万国建筑群，上海地标性景观"},
+{name:"兵马俑",lat:34.384,lng:109.278,district:"临潼区",city:"西安市",province:"陕西省",tags:["历史","考古"],imgUrl:"https://images.unsplash.com/photo-1518013431117-e3753635a2f1?w=800",desc:"世界第八大奇迹，秦朝军事力量见证"}
+];
+
+let userLat=null,userLng=null,userRegion={district:"",city:"",province:""};
+let selectedRange=null,selectedRegion=null,currentSpots=[];
+
+function getLocation(){
+if(navigator.geolocation){
+navigator.geolocation.getCurrentPosition(pos=>{
+userLat=pos.coords.latitude;userLng=pos.coords.longitude;
+document.getElementById('location-text').textContent=`${userLat.toFixed(4)}, ${userLng.toFixed(4)}`;
+userRegion={district:"西湖区",city:"杭州市",province:"浙江省"};
+selectRegionBtn('district');
+},()=>{
+document.getElementById('location-text').textContent='定位失败，请手动输入';
+selectRegionBtn('nationwide');
+});
+}else{
+document.getElementById('location-text').textContent='浏览器不支持定位';
+selectRegionBtn('nationwide');
+}
+}
+
+function selectRegionBtn(type){
+document.querySelectorAll('.region-btn').forEach(btn=>{
+btn.classList.remove('bg-cyan-500','text-gray-900');
+btn.classList.add('bg-gray-700','text-white');
+if(btn.dataset.region===type){btn.classList.remove('bg-gray-700','text-white');btn.classList.add('bg-cyan-500','text-gray-900');}
+});
+selectedRegion=type;
+}
+
+document.querySelectorAll('.range-btn').forEach(btn=>{
+btn.addEventListener('click',()=>{
+document.querySelectorAll('.range-btn').forEach(b=>{b.classList.remove('bg-cyan-500','text-gray-900');b.classList.add('bg-gray-700','text-white');});
+btn.classList.remove('bg-gray-700','text-white');btn.classList.add('bg-cyan-500','text-gray-900');
+selectedRange=btn.dataset.range;
+});
+});
+
+document.querySelectorAll('.region-btn').forEach(btn=>{
+btn.addEventListener('click',()=>selectRegionBtn(btn.dataset.region));
+});
+
+function calcDistance(lat1,lng1,lat2,lng2){
+const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function filterSpots(){
+if(!userLat&&!selectedRegion)return[];
+let filtered=[...spots];
+if(selectedRange&&userLat){
+const maxDist=parseInt(selectedRange);
+filtered=filtered.filter(s=>calcDistance(userLat,userLng,s.lat,s.lng)<=maxDist);
+}
+if(selectedRegion&&userRegion){
+if(selectedRegion==='district')filtered=filtered.filter(s=>s.district===userRegion.district);
+else if(selectedRegion==='city')filtered=filtered.filter(s=>s.city===userRegion.city);
+else if(selectedRegion==='province')filtered=filtered.filter(s=>s.province===userRegion.province);
+}
+return filtered;
+}
+
+function startFilter(){
+currentSpots=filterSpots();
+if(currentSpots.length===0){
+document.getElementById('result-area').classList.add('hidden');
+document.getElementById('no-result').classList.remove('hidden');
+currentSpots=[...spots];
+}else{
+document.getElementById('no-result').classList.add('hidden');
+showRandomSpot();
+}
+}
+
+function showRandomSpot(){
+if(currentSpots.length===0)return;
+const spot=currentSpots[Math.floor(Math.random()*currentSpots.length)];
+document.getElementById('spot-img').src=spot.imgUrl;
+document.getElementById('spot-name').textContent=spot.name;
+document.getElementById('spot-desc').textContent=spot.desc;
+document.getElementById('spot-tag').textContent=spot.tags[0];
+document.getElementById('spot-tags').textContent=spot.tags.join('、');
+document.getElementById('result-area').classList.remove('hidden');
+}
+
+function refreshSpot(){showRandomSpot();}
+
+window.onload=getLocation;
+</script>
+</body>
+</html>

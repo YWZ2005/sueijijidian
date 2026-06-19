@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI景点推荐</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/framer-motion@10/dist/framer-motion.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+    body { font-family: 'Noto Sans SC', sans-serif; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-emerald-50 to-orange-50 min-h-screen">
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { motion, AnimatePresence } = window.Motion;
+
+    const MOCK_DATA = [
+      { name: "灵隐寺", lat: 30.242, lng: 120.135, district: "西湖区", city: "杭州市", province: "浙江省", tags: ["人文", "祈福"], desc: "千年古刹，禅意深远" },
+      { name: "西湖", lat: 30.25, lng: 120.16, district: "西湖区", city: "杭州市", province: "浙江省", tags: ["自然风光", "休闲"], desc: "人间天堂，湖光山色" },
+      { name: "雷峰塔", lat: 30.23, lng: 120.15, district: "西湖区", city: "杭州市", province: "浙江省", tags: ["历史", "观景"], desc: "白蛇传说的见证" },
+      { name: "宋城", lat: 30.17, lng: 120.09, district: "西湖区", city: "杭州市", province: "浙江省", tags: ["主题乐园", "文化"], desc: "穿越千年的体验" },
+      { name: "千岛湖", lat: 29.59, lng: 119.02, district: "淳安县", city: "杭州市", province: "浙江省", tags: ["湖泊", "度假"], desc: "天下第一秀水" },
+      { name: "乌镇", lat: 30.75, lng: 120.48, district: "桐乡市", city: "嘉兴市", province: "浙江省", tags: ["古镇", "水乡"], desc: "江南水乡典范" },
+      { name: "西塘", lat: 30.94, lng: 120.89, district: "嘉善县", city: "嘉兴市", province: "浙江省", tags: ["古镇", "夜景"], desc: "生活着的千年古镇" },
+      { name: "普陀山", lat: 29.98, lng: 122.39, district: "普陀区", city: "舟山市", province: "浙江省", tags: ["佛教", "海岛"], desc: "海天佛国" },
+      { name: "雁荡山", lat: 28.37, lng: 121.11, district: "乐清市", city: "温州市", province: "浙江省", tags: ["山水", "地质"], desc: "东南第一山" },
+      { name: "天台山", lat: 29.15, lng: 121.03, district: "天台县", city: "台州市", province: "浙江省", tags: ["佛教", "自然"], desc: "佛教天台宗发源地" },
+      { name: "故宫", lat: 39.92, lng: 116.40, district: "东城区", city: "北京市", province: "北京市", tags: ["历史", "皇家"], desc: "明清皇家宫殿" },
+      { name: "长城", lat: 40.43, lng: 116.57, district: "延庆区", city: "北京市", province: "北京市", tags: ["历史", "徒步"], desc: "世界文化遗产" },
+      { name: "颐和园", lat: 39.99, lng: 116.27, district: "海淀区", city: "北京市", province: "北京市", tags: ["园林", "皇家"], desc: "皇家园林博物馆" },
+      { name: "外滩", lat: 31.24, lng: 121.49, district: "黄浦区", city: "上海市", province: "上海市", tags: ["现代", "夜景"], desc: "万国建筑博览群" },
+      { name: "东方明珠", lat: 31.24, lng: 121.50, district: "浦东新区", city: "上海市", province: "上海市", tags: ["地标", "观景"], desc: "上海城市象征" },
+      { name: "黄山", lat: 30.14, lng: 118.17, district: "黄山区", city: "黄山市", province: "安徽省", tags: ["山水", "云海"], desc: "五岳归来不看山" },
+      { name: "张家界", lat: 29.12, lng: 110.48, district: "永定区", city: "张家界市", province: "湖南省", tags: ["奇峰", "自然"], desc: "阿凡达取景地" },
+      { name: "九寨沟", lat: 33.20, lng: 103.92, district: "九寨沟县", city: "阿坝州", province: "四川省", tags: ["湖泊", "彩林"], desc: "童话世界" },
+      { name: "丽江古城", lat: 26.87, lng: 100.23, district: "古城区", city: "丽江市", province: "云南省", tags: ["古城", "民族"], desc: "世界文化遗产" },
+      { name: "鼓浪屿", lat: 24.44, lng: 118.07, district: "思明区", city: "厦门市", province: "福建省", tags: ["海岛", "文艺"], desc: "海上花园" }
+    ];
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function App() {
+      const [location, setLocation] = useState(null);
+      const [address, setAddress] = useState("");
+      const [distanceRange, setDistanceRange] = useState(null);
+      const [regionRange, setRegionRange] = useState("district");
+      const [result, setResult] = useState(null);
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+              setAddress("定位成功");
+            },
+            () => {
+              setAddress("定位失败，已切换至全国范围");
+              setRegionRange("nationwide");
+            }
+          );
+        }
+      }, []);
+
+      const filterSpots = () => {
+        let filtered = [...MOCK_DATA];
+        if (distanceRange && location) {
+          const maxDist = parseInt(distanceRange);
+          filtered = filtered.filter(spot => haversine(location.lat, location.lng, spot.lat, spot.lng) <= maxDist);
+        } else if (regionRange !== "nationwide") {
+          const userSpot = MOCK_DATA.find(s => s.district === "西湖区");
+          if (userSpot) {
+            if (regionRange === "district") filtered = filtered.filter(s => s.district === userSpot.district);
+            else if (regionRange === "city") filtered = filtered.filter(s => s.city === userSpot.city);
+            else if (regionRange === "province") filtered = filtered.filter(s => s.province === userSpot.province);
+          }
+        }
+        return filtered.length > 0 ? filtered : MOCK_DATA;
+      };
+
+      const handleRecommend = () => {
+        setLoading(true);
+        setTimeout(() => {
+          const filtered = filterSpots();
+          const random = filtered[Math.floor(Math.random() * filtered.length)];
+          setResult(random);
+          setLoading(false);
+        }, 500);
+      };
+
+      return (
+        <div className="max-w-2xl mx-auto p-6 space-y-6">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+            <h1 className="text-3xl font-bold text-emerald-700 mb-2">🌿 AI景点推荐</h1>
+            <p className="text-gray-600">{address || "正在获取位置..."}</p>
+          </motion.div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">按距离筛选</label>
+              <div className="flex gap-2 flex-wrap">
+                {["1km", "5km", "10km", "20km"].map(range => (
+                  <motion.button key={range} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setDistanceRange(range)} className={`px-4 py-2 rounded-full text-sm ${distanceRange === range ? 'bg-emerald-500 text-white' : 'bg-white text-gray-700 shadow-md'}`}>{range}</motion.button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">按行政区域筛选</label>
+              <div className="flex gap-2 flex-wrap">
+                {[{key: "district", label: "当前区县"}, {key: "city", label: "当前城市"}, {key: "province", label: "当前省份"}, {key: "nationwide", label: "全国"}].map(({key, label}) => (
+                  <motion.button key={key} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => { setRegionRange(key); setDistanceRange(null); }} className={`px-4 py-2 rounded-full text-sm ${regionRange === key ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 shadow-md'}`}>{label}</motion.button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleRecommend} disabled={loading} className="w-full py-3 bg-gradient-to-r from-emerald-500 to-orange-500 text-white rounded-xl font-medium shadow-lg disabled:opacity-50">
+            {loading ? "筛选中..." : "开始筛选"}
+          </motion.button>
+
+          <AnimatePresence>
+            {result && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div className="h-48 bg-gradient-to-br from-emerald-200 to-orange-200 flex items-center justify-center">
+                  <span className="text-6xl">🏞️</span>
+                </div>
+                <div className="p-6 space-y-3">
+                  <h2 className="text-2xl font-bold text-gray-800">{result.name}</h2>
+                  <p className="text-gray-600">{result.desc}</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {result.tags.map(tag => <span key={tag} className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs">{tag}</span>)}
+                  </div>
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleRecommend} className="w-full py-2 bg-orange-500 text-white rounded-lg mt-4">换一个</motion.button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

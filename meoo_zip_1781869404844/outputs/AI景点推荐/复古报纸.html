@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI游玩景点推荐 - 复古报纸版</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Serif SC', Georgia, serif;
+  background: #fefce8;
+  color: #78350f;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container { max-width: 800px; margin: 0 auto; }
+
+.header {
+  text-align: center;
+  border-bottom: 3px double #78350f;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.header .subtitle {
+  font-size: 0.9rem;
+  font-style: italic;
+  margin-top: 5px;
+}
+
+.location-stamp {
+  display: inline-block;
+  border: 2px dashed #78350f;
+  padding: 8px 16px;
+  margin: 15px 0;
+  transform: rotate(-2deg);
+  font-weight: 700;
+}
+
+.filter-section {
+  border: 1px solid #a16207;
+  padding: 15px;
+  margin-bottom: 20px;
+  background: rgba(254, 252, 232, 0.5);
+}
+
+.filter-group { margin-bottom: 12px; }
+
+.filter-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  display: block;
+  border-bottom: 1px dotted #a16207;
+  padding-bottom: 4px;
+}
+
+.stamp-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stamp-btn {
+  background: transparent;
+  border: 2px solid #78350f;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.stamp-btn:hover {
+  background: #fef3c7;
+  transform: scale(1.05);
+}
+
+.stamp-btn.active {
+  background: #78350f;
+  color: #fefce8;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 12px;
+  background: #78350f;
+  color: #fefce8;
+  border: none;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 15px;
+  letter-spacing: 0.05em;
+  transition: all 0.3s;
+}
+
+.action-btn:hover {
+  background: #92400e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(120, 53, 15, 0.3);
+}
+
+.result-card {
+  border: 3px double #78350f;
+  padding: 20px;
+  margin-top: 20px;
+  background: white;
+  position: relative;
+  animation: paperFlip 0.6s ease-out;
+}
+
+@keyframes paperFlip {
+  0% { transform: rotateX(-90deg); opacity: 0; }
+  100% { transform: rotateX(0); opacity: 1; }
+}
+
+.result-card::before {
+  content: "★ 特别报道 ★";
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #78350f;
+  color: #fefce8;
+  padding: 2px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  margin-bottom: 10px;
+  border-bottom: 2px solid #a16207;
+  padding-bottom: 8px;
+}
+
+.card-image {
+  width: 100%;
+  height: 200px;
+  background: #fef3c7;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-style: italic;
+  color: #a16207;
+  border: 1px solid #d4a574;
+}
+
+.card-desc {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.card-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.tag {
+  background: #fef3c7;
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  border: 1px dotted #a16207;
+}
+
+.retry-btn {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 2px solid #78350f;
+  font-family: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: all 0.2s;
+}
+
+.retry-btn:hover {
+  background: #fef3c7;
+}
+
+.typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: typing 2s steps(20, end);
+}
+
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.hidden { display: none; }
+
+@media (max-width: 600px) {
+  .header h1 { font-size: 1.5rem; }
+  .stamp-buttons { flex-direction: column; }
+  .stamp-btn { width: 100%; text-align: center; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>AI游玩景点推荐</h1>
+    <div class="subtitle">发现身边的精彩 · 每日精选</div>
+    <div class="location-stamp" id="locationStamp">定位中...</div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-group">
+      <span class="filter-label">按距离筛选</span>
+      <div class="stamp-buttons" id="distanceBtns">
+        <button class="stamp-btn" data-range="1km">1公里内</button>
+        <button class="stamp-btn" data-range="5km">5公里内</button>
+        <button class="stamp-btn active" data-range="10km">10公里内</button>
+        <button class="stamp-btn" data-range="20km">20公里内</button>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <span class="filter-label">按行政区域筛选</span>
+      <div class="stamp-buttons" id="regionBtns">
+        <button class="stamp-btn active" data-region="district">当前区/县级市</button>
+        <button class="stamp-btn" data-region="city">当前地级市</button>
+        <button class="stamp-btn" data-region="province">当前省份</button>
+        <button class="stamp-btn" data-region="nationwide">全国</button>
+      </div>
+    </div>
+
+    <button class="action-btn" id="startBtn">开始筛选</button>
+  </div>
+
+  <div id="resultArea" class="hidden"></div>
+</div>
+
+<script>
+const AMAP_KEY = process.env.VITE_AMAP_KEY || '';
+
+const mockSpots = [
+  { name: "灵隐寺", lat: 30.242, lng: 120.135, district: "西湖区", city: "杭州市", province: "浙江省", tags: ["人文", "祈福"], desc: "千年古刹，禅意深远，飞来峰石刻艺术精湛。" },
+  { name: "西湖", lat: 30.25, lng: 120.15, district: "西湖区", city: "杭州市", province: "浙江省", tags: ["自然", "休闲"], desc: "人间天堂，湖光山色美不胜收。" },
+  { name: "宋城", lat: 30.18, lng: 120.09, district: "西湖区", city: "杭州市", province: "浙江省", tags: ["主题乐园", "文化"], desc: "穿越宋朝，体验古代风情。" },
+  { name: "千岛湖", lat: 29.59, lng: 119.02, district: "淳安县", city: "杭州市", province: "浙江省", tags: ["湖泊", "度假"], desc: "一千多个岛屿星罗棋布，水质清澈。" },
+  { name: "乌镇", lat: 30.75, lng: 120.48, district: "桐乡市", city: "嘉兴市", province: "浙江省", tags: ["古镇", "水乡"], desc: "江南水乡典范，小桥流水人家。" },
+  { name: "普陀山", lat: 30.01, lng: 122.39, district: "普陀区", city: "舟山市", province: "浙江省", tags: ["佛教", "海岛"], desc: "海天佛国，观音道场。" },
+  { name: "雁荡山", lat: 28.37, lng: 121.11, district: "乐清市", city: "温州市", province: "浙江省", tags: ["山水", "地质"], desc: "东南第一山，奇峰怪石林立。" },
+  { name: "天台山", lat: 29.15, lng: 121.03, district: "天台县", city: "台州市", province: "浙江省", tags: ["佛教", "自然"], desc: "佛教天台宗发源地，风景秀丽。" },
+  { name: "故宫", lat: 39.92, lng: 116.4, district: "东城区", city: "北京市", province: "北京市", tags: ["历史", "皇家"], desc: "明清两代皇宫，世界文化遗产。" },
+  { name: "长城", lat: 40.43, lng: 116.57, district: "延庆区", city: "北京市", province: "北京市", tags: ["历史", "徒步"], desc: "万里长城，中华民族的象征。" },
+  { name: "兵马俑", lat: 34.38, lng: 109.27, district: "临潼区", city: "西安市", province: "陕西省", tags: ["历史", "考古"], desc: "秦始皇陵陪葬坑，世界第八大奇迹。" },
+  { name: "九寨沟", lat: 33.2, lng: 103.9, district: "九寨沟县", city: "阿坝州", province: "四川省", tags: ["自然", "湖泊"], desc: "童话世界，五彩斑斓的湖泊瀑布。" },
+  { name: "丽江古城", lat: 26.87, lng: 100.23, district: "古城区", city: "丽江市", province: "云南省", tags: ["古镇", "民族"], desc: "纳西族文化圣地，雪山下的古城。" },
+  { name: "桂林山水", lat: 25.27, lng: 110.29, district: "秀峰区", city: "桂林市", province: "广西壮族自治区", tags: ["山水", "自然"], desc: "桂林山水甲天下，喀斯特地貌奇观。" },
+  { name: "张家界", lat: 29.12, lng: 110.48, district: "永定区", city: "张家界市", province: "湖南省", tags: ["山水", "地质"], desc: "奇峰三千，秀水八百，阿凡达取景地。" },
+  { name: "黄山", lat: 30.13, lng: 118.17, district: "黄山区", city: "黄山市", province: "安徽省", tags: ["山水", "云海"], desc: "五岳归来不看山，黄山归来不看岳。" },
+  { name: "鼓浪屿", lat: 24.44, lng: 118.07, district: "思明区", city: "厦门市", province: "福建省", tags: ["海岛", "文艺"], desc: "海上花园，钢琴之岛。" },
+  { name: "三亚湾", lat: 18.25, lng: 109.51, district: "天涯区", city: "三亚市", province: "海南省", tags: ["海滩", "度假"], desc: "热带海滨，阳光沙滩椰林。" },
+  { name: "敦煌莫高窟", lat: 40.04, lng: 94.8, district: "敦煌市", city: "酒泉市", province: "甘肃省", tags: ["历史", "艺术"], desc: "东方艺术明珠，千年佛教艺术宝库。" },
+  { name: "拉萨布达拉宫", lat: 29.65, lng: 91.12, district: "城关区", city: "拉萨市", province: "西藏自治区", tags: ["宗教", "历史"], desc: "雪域高原的圣殿，藏传佛教圣地。" }
+];
+
+let userLocation = null;
+let userRegion = { district: '', city: '', province: '' };
+let selectedDistance = '10km';
+let selectedRegion = 'district';
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function getLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        await reverseGeocode(userLocation.lat, userLocation.lng);
+      },
+      () => {
+        document.getElementById('locationStamp').textContent = '定位失败，已切换至全国范围';
+        selectedRegion = 'nationwide';
+        updateActiveButtons();
+      }
+    );
+  } else {
+    document.getElementById('locationStamp').textContent = '浏览器不支持定位';
+    selectedRegion = 'nationwide';
+    updateActiveButtons();
+  }
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const resp = await fetch(`https://restapi.amap.com/v3/geocode/regeo?key=${AMAP_KEY}&location=${lng},${lat}`);
+    const data = await resp.json();
+    if (data.status === '1' && data.regeocode) {
+      const addr = data.regeocode.addressComponent;
+      userRegion = { district: addr.district || '', city: addr.city || '', province: addr.province || '' };
+      document.getElementById('locationStamp').textContent = `${userRegion.province} ${userRegion.city} ${userRegion.district}`;
+    }
+  } catch (e) {
+    console.error('逆地理编码失败', e);
+  }
+}
+
+function filterSpots() {
+  let filtered = [...mockSpots];
+  
+  if (selectedRegion !== 'nationwide' && userLocation) {
+    if (selectedRegion === 'district') {
+      filtered = filtered.filter(s => s.district === userRegion.district);
+    } else if (selectedRegion === 'city') {
+      filtered = filtered.filter(s => s.city === userRegion.city);
+    } else if (selectedRegion === 'province') {
+      filtered = filtered.filter(s => s.province === userRegion.province);
+    }
+  }
+
+  if (selectedDistance && userLocation) {
+    const maxDist = parseFloat(selectedDistance);
+    filtered = filtered.filter(s => {
+      const dist = haversine(userLocation.lat, userLocation.lng, s.lat, s.lng);
+      return dist <= maxDist;
+    });
+  }
+
+  if (filtered.length === 0) {
+    filtered = [...mockSpots];
+  }
+
+  return filtered;
+}
+
+function showResult() {
+  const spots = filterSpots();
+  const spot = spots[Math.floor(Math.random() * spots.length)];
+  const dist = userLocation ? haversine(userLocation.lat, userLocation.lng, spot.lat, spot.lng).toFixed(1) : 'N/A';
+  
+  const html = `
+    <div class="result-card">
+      <div class="card-title typewriter">${spot.name}</div>
+      <div class="card-image">[景点图片]</div>
+      <div class="card-desc">${spot.desc}</div>
+      <div class="card-tags">
+        ${spot.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+        <span class="tag">距离: ${dist}km</span>
+      </div>
+      <button class="retry-btn" onclick="showResult()">换一个</button>
+    </div>
+  `;
+  
+  const area = document.getElementById('resultArea');
+  area.innerHTML = html;
+  area.classList.remove('hidden');
+}
+
+function updateActiveButtons() {
+  document.querySelectorAll('#distanceBtns .stamp-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.range === selectedDistance);
+  });
+  document.querySelectorAll('#regionBtns .stamp-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.region === selectedRegion);
+  });
+}
+
+document.getElementById('distanceBtns').addEventListener('click', (e) => {
+  if (e.target.classList.contains('stamp-btn')) {
+    selectedDistance = e.target.dataset.range;
+    updateActiveButtons();
+  }
+});
+
+document.getElementById('regionBtns').addEventListener('click', (e) => {
+  if (e.target.classList.contains('stamp-btn')) {
+    selectedRegion = e.target.dataset.region;
+    updateActiveButtons();
+  }
+});
+
+document.getElementById('startBtn').addEventListener('click', showResult);
+
+getLocation();
+</script>
+</body>
+</html>
